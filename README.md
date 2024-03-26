@@ -1,5 +1,7 @@
 # scp-sl-logs-parser
 
+> #### The project is currently in the stage of active development. Extracting possible log types and processing them can be quite resource-intensive, as Northwood created these logs for both non-human and non-machine users.
+
 ### Notice
 
 - Minimum supported game version: 11.0
