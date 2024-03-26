@@ -1,6 +1,14 @@
 import { SERVER_LOG_SEPARATOR, ServerLogModuleToEnum, ServerLogTypeToEnum } from '../constants'
-import { LogLineMeta } from '../types'
 
+import type { LogLineMeta } from '../types'
+
+/**
+ * Parses a log line and returns the metadata.
+ *
+ * @param line - The log line to parse.
+ * @returns The parsed log line metadata.
+ * @throws Error if the log line format is invalid.
+ */
 export function parseLineMeta(line: string): LogLineMeta {
   const parts = line.split(SERVER_LOG_SEPARATOR)
 
