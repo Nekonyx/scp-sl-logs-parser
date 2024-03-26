@@ -1,4 +1,4 @@
-import { IS_NODE_ENV } from '../constants'
+import { GameEventType, IS_NODE_ENV } from '../constants'
 import { parse } from './parse'
 
 import type { GameEvent, LogFileMeta } from '../types'
@@ -21,16 +21,36 @@ export async function parseFile(
   let startedAt: Date | undefined
   let endedAt: Date | undefined
 
+  let firstEventDate: Date | undefined
+  let lastEventDate: Date | undefined
+
   for (const line of lines) {
     const event = parse(line)
     events.push(event)
+
+    firstEventDate ??= event.date
+    lastEventDate = event.date
+
+    switch (event.type) {
+      case GameEventType.LoggerStarted:
+        gameVersion = event.gameVersion
+        break
+
+      case GameEventType.RoundStarted:
+        startedAt = event.date
+        break
+
+      case GameEventType.RoundEnded:
+        endedAt = event.date
+        break
+    }
   }
 
   return {
     events,
     gameVersion,
-    startedAt,
-    endedAt
+    startedAt: startedAt ?? firstEventDate,
+    endedAt: endedAt ?? lastEventDate
   }
 }
 
