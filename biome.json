@@ -14,7 +14,7 @@
 				"noNonNullAssertion": "off"
 			},
 			"correctness": {
-				"noUnusedImports": "warn"
+				"noUnusedImports": "off"
 			}
 		}
 	},
