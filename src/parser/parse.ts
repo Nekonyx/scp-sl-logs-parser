@@ -2,7 +2,7 @@ import { ServerLogModule, ServerLogType } from '../constants'
 import { parseLineMeta } from './parse-line-meta'
 
 import { GameEventType } from '../constants'
-import type { GameEvent, PlayerKilledGameEvent } from '../types'
+import type { GameEvent } from '../types'
 
 function extractPlayerData(logContent: string): {
   displayName?: string
@@ -14,15 +14,20 @@ function extractPlayerData(logContent: string): {
   // Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)
   const displayNameRegex =
     /(.*?)<color.*?color> \((.*?)\) \((\w+@steam|northwood|discord|patreon)\)/g
-  const nicknameRegex = /(.*?) \((\w+@steam|northwood|discord|patreon)\)/
+  const nicknameRegex = /(.*?) \((\w+@steam|northwood|discord|patreon)\)/g
 
   if (logContent.includes('<color=')) {
     const [displayName, nickname, userId] = logContent.match(displayNameRegex)!
-    return { userId, nickname, newContent: logContent.replace(displayName, '') }
+    return {
+      displayName,
+      userId,
+      nickname,
+      newContent: logContent.replace(new RegExp(displayNameRegex, ''), '')
+    }
   }
 
   const [nickname, userId] = logContent.match(nicknameRegex)!
-  return { userId, nickname, newContent: logContent.replace(nicknameRegex, '') }
+  return { userId, nickname, newContent: logContent.replace(new RegExp(nicknameRegex, ''), '') }
 }
 
 /**
@@ -145,9 +150,69 @@ export function parse(line: string): GameEvent {
         meta
       }
     }
-    case ServerLogType.RemoteAdminActivity_GameChanging:
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause:
+    case ServerLogType.RemoteAdminActivity_GameChanging: {
+      // John Doe (76561199012345678@steam) banned player scp (76561199012345678@steam). Ban duration: 30. Reason: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis tempor nisl. Aliquam aliquam, nisi sed hendrerit pretium, odio felis sollicitudin tellus, ac ultricies ante nisl id sem. Ut molestie purus eu lorem sagittis suscipit.
+      // John Doe (76561199012345678@steam) teleported themself to player John Doe (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) teleported themself to player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) started a cassie announcement: Attention . SCP 0 4 9 has escaped the facility . . .g2 Report to nearby Site . ready .
+      // John Doe (76561199012345678@steam) started a silent cassie announcement: pitch_0.8 .g4 . . .g4 . . .g4 . . . warning jam_010_2 pitch_0.9 . all .g6 personel . facility light system .g2 pitch_0.7 jam_001_3 .g2 .g2 jam_50_2 pitch_0.8 critical pitch_0.6 .g2 .g1 .g2 pitch_0.8 jam_3_4 detected . . .g1 .g5 light jam_5_3 may . b .g1 unstable pitch_0.8 jam_4_4 .g4 . . jam_4_4 .g4 . . jam_4_4 .g4 .
+      // John Doe (76561199012345678@steam) brought player John Doe (76561199012345678@steam).
+      // LCZ decontamination has been disabled by detonation of the Alpha Warhead.
+      // John Doe (76561199012345678@steam)opened door **.
+      // John Doe (76561199012345678@steam)closed door **.
+      // John Doe (76561199012345678@steam)unlocked door **.
+      // John Doe (76561199012345678@steam)locked door **.
+      // John Doe (76561199012345678@steam) enabled lobby lock.
+      // John Doe (76561199012345678@steam) disabled lobby lock.
+      // John Doe (76561199012345678@steam) enabled round lock.
+      // John Doe (76561199012345678@steam) disabled round lock.
+      // John Doe (76561199012345678@steam) muted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) unmuted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) revoked an intercom mute of player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) gave Adrenaline to John Doe (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) set nickname of player 42 (John Doe) to "Jane Doe".
+      switch (meta.module) {
+        case ServerLogModule.Warhead:
+        case ServerLogModule.Networking:
+        case ServerLogModule.ClassChange:
+        case ServerLogModule.Permissions:
+        case ServerLogModule.Administrative: {
+          if (content.includes('banned')) {
+            const adminData = extractPlayerData(content)
+            const playerData = extractPlayerData(adminData.newContent)
+            const [_, duration, reason] = content.match(
+              /Ban duration\: (\d+)\. Reason: ([\s\S]+)$/
+            )!
+            return {
+              type: GameEventType.PlayerBanned,
+              meta,
+              administrator: {
+                userId: adminData.userId,
+                nickname: adminData.nickname,
+                displayName: adminData.displayName
+              },
+              player: {
+                userId: playerData.userId,
+                nickname: playerData.nickname,
+                displayName: playerData.displayName
+              },
+              duration: Number(duration),
+              reason
+            }
+          }
+          throw new Error('Not implemented')
+        }
+        case ServerLogModule.Logger:
+        case ServerLogModule.DataAccess:
+        case ServerLogModule.Detector: {
+          throw new Error('Not implemented')
+        }
+      }
+    }
+
     case ServerLogType.RemoteAdminActivity_Misc:
-    case ServerLogType.KillLog:
+    // case ServerLogType.KillLog:
     // {
     //   // John Doe (76561199012345678@steam) playing as Class-D Personnel has been killed by John Doe (76561199012345678@steam) using SCP-173 playing as SCP-173.
     //   // Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) playing as Chaos Insurgency Repressor has been killed by Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) using LOGICER playing as Nine-Tailed Fox Captain.
@@ -289,13 +354,58 @@ export function parse(line: string): GameEvent {
     case ServerLogType.RateLimit:
     case ServerLogType.Teamkill:
     case ServerLogType.Suicide:
+    // biome-ignore lint/suspicious/noFallthroughSwitchClause:
     case ServerLogType.AdminChat: {
+      // John Doe (76561199012345678@steam) banned player scp (76561199012345678@steam). Ban duration: 30. Reason: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis tempor nisl. Aliquam aliquam, nisi sed hendrerit pretium, odio felis sollicitudin tellus, ac ultricies ante nisl id sem. Ut molestie purus eu lorem sagittis suscipit.
+      // John Doe (76561199012345678@steam) teleported themself to player John Doe (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) teleported themself to player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) started a cassie announcement: Attention . SCP 0 4 9 has escaped the facility . . .g2 Report to nearby Site . ready .
+      // John Doe (76561199012345678@steam) started a silent cassie announcement: pitch_0.8 .g4 . . .g4 . . .g4 . . . warning jam_010_2 pitch_0.9 . all .g6 personel . facility light system .g2 pitch_0.7 jam_001_3 .g2 .g2 jam_50_2 pitch_0.8 critical pitch_0.6 .g2 .g1 .g2 pitch_0.8 jam_3_4 detected . . .g1 .g5 light jam_5_3 may . b .g1 unstable pitch_0.8 jam_4_4 .g4 . . jam_4_4 .g4 . . jam_4_4 .g4 .
+      // John Doe (76561199012345678@steam) brought player John Doe (76561199012345678@steam).
+      // LCZ decontamination has been disabled by detonation of the Alpha Warhead.
+      // John Doe (76561199012345678@steam)opened door **.
+      // John Doe (76561199012345678@steam)closed door **.
+      // John Doe (76561199012345678@steam)unlocked door **.
+      // John Doe (76561199012345678@steam)locked door **.
+      // John Doe (76561199012345678@steam) enabled lobby lock.
+      // John Doe (76561199012345678@steam) disabled lobby lock.
+      // John Doe (76561199012345678@steam) enabled round lock.
+      // John Doe (76561199012345678@steam) disabled round lock.
+      // John Doe (76561199012345678@steam) muted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) unmuted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) revoked an intercom mute of player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) gave Adrenaline to John Doe (76561199012345678@steam).
+      // John Doe (76561199012345678@steam) set nickname of player 42 (John Doe) to "Jane Doe".
       switch (meta.module) {
         case ServerLogModule.Warhead:
         case ServerLogModule.Networking:
         case ServerLogModule.ClassChange:
         case ServerLogModule.Permissions:
-        case ServerLogModule.Administrative:
+        case ServerLogModule.Administrative: {
+          if (content.includes('banned')) {
+            const adminData = extractPlayerData(content)
+            const playerData = extractPlayerData(adminData.newContent)
+            const [duration, reason] = content.match(/Ban duration: (\d+). Reason: ([\s\S]+)$/g)!
+
+            return {
+              type: GameEventType.PlayerBanned,
+              meta,
+              administrator: {
+                userId: adminData.userId,
+                nickname: adminData.nickname,
+                displayName: adminData.displayName
+              },
+              player: {
+                userId: playerData.userId,
+                nickname: playerData.nickname,
+                displayName: playerData.displayName
+              },
+              duration: Number(duration),
+              reason
+            }
+          }
+          throw new Error('Not implemented')
+        }
         case ServerLogModule.Logger:
         case ServerLogModule.DataAccess:
         case ServerLogModule.Detector: {
@@ -305,7 +415,7 @@ export function parse(line: string): GameEvent {
     }
 
     default: {
-      throw new Error(`Unknown log type ${meta.type}`)
+      throw new Error(`Unknown log type ${meta.type} with module ${meta.module}`)
     }
   }
 }
