@@ -1,7 +1,8 @@
 import { ServerLogModule, ServerLogType } from '../constants'
 import { parseLineMeta } from './parse-line-meta'
 
-import type { GameEvent } from '../types'
+import { GameEventType } from '../constants'
+import type { GameEvent, PlayerKilledGameEvent } from '../types'
 
 /**
  * Parses a log line and returns a GameEvent object.
@@ -18,8 +19,146 @@ export function parse(line: string): GameEvent {
     case ServerLogType.RemoteAdminActivity_GameChanging:
     case ServerLogType.RemoteAdminActivity_Misc:
     case ServerLogType.KillLog:
-    case ServerLogType.GameEvent:
-    case ServerLogType.InternalMessage:
+    // {
+    //   // John Doe (76561199012345678@steam) playing as Class-D Personnel has been killed by John Doe (76561199012345678@steam) using SCP-173 playing as SCP-173.
+    //   // Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) playing as Chaos Insurgency Repressor has been killed by Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) using LOGICER playing as Nine-Tailed Fox Captain.
+    //   return {
+    //     type: GameEventType.WarheadDetonated,
+
+    //   }
+    // }
+    case ServerLogType.GameEvent: {
+      // Round has been started.
+      // Round finished! Anomalies: 0 | Chaos: 0 | Facility Forces: 6 | D escaped percentage: 0 | S escaped percentage: : 0
+      // John Doe (76561199012345678@steam) spawned as Class-D Personnel.
+      // Class Picker Result: ClassD | Scp93953 | FacilityGuard | ClassD | Scientist | FacilityGuard | ClassD | Scp049 | Scientist | FacilityGuard | ClassD | ClassD | FacilityGuard | ClassD | Scp173 | ClassD | FacilityGuard | Scientist | ClassD | Scp079 | ClassD | ClassD | ClassD |
+      // Random classes have been assigned by DCP.
+      // Player John Doe (76561199012345678@steam) respawned as NtfSergeant.
+      // RespawnManager has successfully spawned 11 players as NineTailedFox!
+      // Countdown started.
+      // Warhead detonated.
+
+      const { content } = meta
+
+      if (content === 'Round has been started.') {
+        return {
+          type: GameEventType.RoundStarted,
+          meta: meta
+        }
+      }
+
+      if (content.startsWith('Round finished!')) {
+        const [
+          anomalies,
+          chaos,
+          facilityForces,
+          dClassEscapePercentage,
+          scientistsEscapePercentage
+        ] = content.match(/\d+/g)!.map(Number)
+
+        return {
+          type: GameEventType.RoundEnded,
+          meta,
+          anomalies,
+          chaos,
+          facilityForces,
+          dClassEscapePercentage,
+          scientistsEscapePercentage
+        }
+      }
+
+      if (content.includes('spawned as')) {
+        const [nickname, userId, playerClass] = content.match(
+          /(.*?) \((\w+@steam|northwood|discord|patreon)\) spawned as (.*?)\./g
+        )!
+
+        return {
+          type: GameEventType.PlayerSpawned,
+          meta,
+          player: {
+            userId,
+            nickname,
+            class: playerClass
+          }
+        }
+      }
+
+      if (content.startsWith('Class Picker Result')) {
+        const classes = content
+          .split(':')[1]
+          .split('|')
+          .map((playerClass) => playerClass.trim())
+
+        return {
+          type: GameEventType.ClassPickerResult,
+          meta,
+          classes
+        }
+      }
+
+      if (content.startsWith('Random classes have been assigned')) {
+        return {
+          type: GameEventType.RandomClassesAssigned,
+          meta
+        }
+      }
+
+      if (content.includes('respawned as')) {
+        const [nickname, userId, playerClass] = content.match(
+          /Player (.*?) \((\w+@steam|northwood|discord|patreon)\) respawned as (.*?)\./g
+        )!
+
+        return {
+          type: GameEventType.PlayerRespawned,
+          meta,
+          player: {
+            userId,
+            nickname,
+            class: playerClass
+          }
+        }
+      }
+
+      if (content.startsWith('RespawnManager has successfully spawned')) {
+        // ? В RespawnManagerSpawnedPlayers не прописано поле класса
+        const [count, playerClass] = content.match(/spawned (\d+) players as (.*?)\!/g)!
+
+        return {
+          type: GameEventType.RespawnManagerSpawnedPlayers,
+          meta,
+          count: Number(count)
+        }
+      }
+
+      if (content === 'Countdown started.') {
+        return {
+          type: GameEventType.WarheadCountdownStarted,
+          meta
+        }
+      }
+
+      if (content === 'Warhead detonated.') {
+        return {
+          type: GameEventType.WarheadDetonated,
+          meta
+        }
+      }
+
+      throw new Error(`Couldn't parse content of log of type ${meta.type}: ${content}`)
+    }
+    case ServerLogType.InternalMessage: {
+      // Started logging. Game version: 11.0.0, private beta: NO.
+      const [gameVersion, isPrivateBeta] = meta.content.match(
+        /Game version: ([\d.]+?), private beta: (NO|YES)./g
+      )!
+
+      return {
+        type: GameEventType.LoggerStarted,
+        meta,
+        gameVersion,
+        isPrivateBeta: isPrivateBeta === 'YES'
+      }
+    }
     case ServerLogType.RateLimit:
     case ServerLogType.Teamkill:
     case ServerLogType.Suicide:

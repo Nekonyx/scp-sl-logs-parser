@@ -65,7 +65,6 @@ export type Player = {
 
 export type LoggerStartedGameEvent = {
   type: GameEventType.LoggerStarted
-  date: Date
   meta: LogLineMeta
   gameVersion: string
   isPrivateBeta: boolean
@@ -73,13 +72,11 @@ export type LoggerStartedGameEvent = {
 
 export type RoundStartedGameEvent = {
   type: GameEventType.RoundStarted
-  date: Date
   meta: LogLineMeta
 }
 
 export type RoundEndedGameEvent = {
   type: GameEventType.RoundEnded
-  date: Date
   meta: LogLineMeta
   anomalies: number
   chaos: number
@@ -90,14 +87,12 @@ export type RoundEndedGameEvent = {
 
 export type PlayerPreauthenticatedGameEvent = {
   type: GameEventType.PlayerPreauthenticated
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'userId' | 'ip' | 'port' | 'endpoint'>
 }
 
 export type PlayerAuthenticatedGameEvent = {
   type: GameEventType.PlayerAuthenticated
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'id' | 'userId' | 'ip' | 'port' | 'endpoint'>
   authTokenSerialNumber: string
@@ -105,55 +100,47 @@ export type PlayerAuthenticatedGameEvent = {
 
 export type PlayerJoinedGameEvent = {
   type: GameEventType.PlayerJoined
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'userId' | 'nickname'>
 }
 
 export type PlayerLeftGameEvent = {
   type: GameEventType.PlayerLeft
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'class'>
 }
 
 export type PlayerSentDoNotTrackSignalGameEvent = {
   type: GameEventType.PlayerSentDoNotTrackSignal
-  date: Date
   meta: LogLineMeta
   ip: string
 }
 
 export type PlayerAssignedToGroupGameEvent = {
   type: GameEventType.PlayerAssignedToGroup
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'group'>
 }
 
 export type PlayerSpawnedGameEvent = {
   type: GameEventType.PlayerSpawned
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'class'>
 }
 
 export type ClassPickerResultGameEvent = {
   type: GameEventType.ClassPickerResult
-  date: Date
   meta: LogLineMeta
   classes: string[]
 }
 
 export type RandomClassesAssignedGameEvent = {
   type: GameEventType.RandomClassesAssigned
-  date: Date
   meta: LogLineMeta
 }
 
 export type PlayerChangedClassGameEvent = {
   type: GameEventType.PlayerChangedClass
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'class'>
@@ -161,7 +148,6 @@ export type PlayerChangedClassGameEvent = {
 
 export type PlayerKilledGameEvent = {
   type: GameEventType.PlayerKilled
-  date: Date
   meta: LogLineMeta
   killer: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'class'>
   victim: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'class'>
@@ -169,7 +155,6 @@ export type PlayerKilledGameEvent = {
 
 export type PlayerBannedGameEvent = {
   type: GameEventType.PlayerBanned
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -179,7 +164,6 @@ export type PlayerBannedGameEvent = {
 
 export type PlayerTeleportedGameEvent = {
   type: GameEventType.PlayerTeleported
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -187,7 +171,6 @@ export type PlayerTeleportedGameEvent = {
 
 export type CassieAnnouncementStartedGameEvent = {
   type: GameEventType.CassieAnnouncementStarted
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   isSilent: boolean
@@ -196,21 +179,18 @@ export type CassieAnnouncementStartedGameEvent = {
 
 export type PlayerRespawnedGameEvent = {
   type: GameEventType.PlayerRespawned
-  date: Date
   meta: LogLineMeta
   player: Pick<Player, 'userId' | 'nickname' | 'displayName' | 'class'>
 }
 
 export type RespawnManagerSpawnedPlayersGameEvent = {
   type: GameEventType.RespawnManagerSpawnedPlayers
-  date: Date
   meta: LogLineMeta
   count: number
 }
 
 export type PlayerBroughtGameEvent = {
   type: GameEventType.PlayerBrought
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -218,32 +198,27 @@ export type PlayerBroughtGameEvent = {
 
 export type WarheadCountdownStartedGameEvent = {
   type: GameEventType.WarheadCountdownStarted
-  date: Date
   meta: LogLineMeta
 }
 
 export type WarheadDetonatedGameEvent = {
   type: GameEventType.WarheadDetonated
-  date: Date
   meta: LogLineMeta
 }
 
 export type DecontaminationDisabledGameEvent = {
   type: GameEventType.DecontaminationDisabled
-  date: Date
   meta: LogLineMeta
 }
 
 export type RateLimitExceededGameEvent = {
   type: GameEventType.RateLimitExceeded
-  date: Date
   meta: LogLineMeta
   player: Partial<Pick<Player, 'userId'>> & Pick<Player, 'endpoint'>
 }
 
 export type DoorOpenedGameEvent = {
   type: GameEventType.DoorOpened
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   door: string
@@ -251,7 +226,6 @@ export type DoorOpenedGameEvent = {
 
 export type DoorClosedGameEvent = {
   type: GameEventType.DoorClosed
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   door: string
@@ -259,7 +233,6 @@ export type DoorClosedGameEvent = {
 
 export type DoorUnlockedGameEvent = {
   type: GameEventType.DoorUnlocked
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   door: string
@@ -267,7 +240,6 @@ export type DoorUnlockedGameEvent = {
 
 export type DoorLockedGameEvent = {
   type: GameEventType.DoorLocked
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   door: string
@@ -275,35 +247,30 @@ export type DoorLockedGameEvent = {
 
 export type LobbyLockEnabledGameEvent = {
   type: GameEventType.LobbyLockEnabled
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
 }
 
 export type LobbyLockDisabledGameEvent = {
   type: GameEventType.LobbyLockDisabled
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
 }
 
 export type RoundLockEnabledGameEvent = {
   type: GameEventType.RoundLockEnabled
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
 }
 
 export type RoundLockDisabledGameEvent = {
   type: GameEventType.RoundLockDisabled
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
 }
 
 export type PlayerMutedGameEvent = {
   type: GameEventType.PlayerMuted
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -311,7 +278,6 @@ export type PlayerMutedGameEvent = {
 
 export type PlayerUnmutedGameEvent = {
   type: GameEventType.PlayerUnmuted
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -319,7 +285,6 @@ export type PlayerUnmutedGameEvent = {
 
 export type PlayerIntercomMuteRevokedGameEvent = {
   type: GameEventType.PlayerIntercomMuteRevoked
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -327,7 +292,6 @@ export type PlayerIntercomMuteRevokedGameEvent = {
 
 export type PlayerGotItemGameEvent = {
   type: GameEventType.PlayerGotItem
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
@@ -336,7 +300,6 @@ export type PlayerGotItemGameEvent = {
 
 export type PlayerSetNicknameGameEvent = {
   type: GameEventType.PlayerSetNickname
-  date: Date
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
   player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
