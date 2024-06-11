@@ -10,9 +10,9 @@ import type { GameEvent, LogFileMeta } from '../types'
  * @returns A promise that resolves to the metadata of the log file.
  */
 export async function parseFile(
-  file: string | File | ArrayBuffer | Uint8Array | Buffer
+  fileToParse: string | File | ArrayBuffer | Uint8Array | Buffer
 ): Promise<LogFileMeta> {
-  file = await readFile(file)
+  const file = await readFile(fileToParse)
 
   const lines = file.trim().split('\n')
   const events: GameEvent[] = []
@@ -75,9 +75,7 @@ async function readFile(file: string | File | ArrayBuffer | Uint8Array | Buffer)
   if (IS_NODE_ENV) {
     // I don't want to alloc new buffer if it's already a buffer
     // prettier-ignore
-    return Buffer.isBuffer(file)
-      ? file.toString('utf8')
-      : Buffer.from(file).toString('utf8')
+    return Buffer.isBuffer(file) ? file.toString('utf8') : Buffer.from(file).toString('utf8')
   }
 
   // ArrayBuffer and Uint8Array is a Web-standard, so we can use TextDecoder
