@@ -13,21 +13,21 @@ function extractPlayerData(logContent: string): {
   // John Doe (76561199012345678@steam)
   // Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)
   const displayNameRegex =
-    /(.*?)<color.*?color> \((.*?)\) \((\w+@steam|northwood|discord|patreon)\)/g
-  const nicknameRegex = /(.*?) \((\w+@steam|northwood|discord|patreon)\)/g
+    /(.*?)<color.*?color> \((.*?)\) \((\w+@steam|northwood|discord|patreon)\)/
+  const nicknameRegex = /(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/
 
   if (logContent.includes('<color=')) {
-    const [displayName, nickname, userId] = logContent.match(displayNameRegex)!
+    const [displayName, nickname, userId] = logContent.match(displayNameRegex)!.slice(1)
     return {
       displayName,
       userId,
       nickname,
-      newContent: logContent.replace(new RegExp(displayNameRegex, ''), '')
+      newContent: logContent.replace(displayNameRegex, '')
     }
   }
 
-  const [nickname, userId] = logContent.match(nicknameRegex)!
-  return { userId, nickname, newContent: logContent.replace(new RegExp(nicknameRegex, ''), '') }
+  const [nickname, userId] = logContent.match(nicknameRegex)!.slice(1)
+  return { userId, nickname, newContent: logContent.replace(nicknameRegex, '') }
 }
 
 /**
@@ -50,9 +50,9 @@ export function parse(line: string): GameEvent {
       // Player (CharacterClassManager)) connected from IP 127.0.0.1 sent Do Not Track signal.
       // John Doe (76561199012345678@steam) has been assigned to group Administrator.
       if (content.includes('preauthenticated')) {
-        const [userId, ip, port] = content.match(
-          /(\w+?@steam|northwood|discord|patreon).*((?:\d{1,3}\.?){4}):(\d+)/g
-        )!
+        const [userId, ip, port] = content
+          .match(/(\w+?@steam|northwood|discord|patreon).* endpoint (.*?):(\d+)/)!
+          .slice(1)
 
         return {
           type: GameEventType.PlayerPreauthenticated,
@@ -67,12 +67,12 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('Auth token serial number')) {
-        const [userId, ip, port] = content.match(
-          /(\w+?@steam|northwood|discord|patreon).*((?:\d{1,3}\.?){4}):(\d+)/g
-        )!
-        const [playerId, authToken] = content.match(
-          /Player ID assigned: (\d+). Auth token serial number: (\w+)/g
-        )!
+        const [userId, ip, port] = content
+          .match(/(\w+?@steam|northwood|discord|patreon).* endpoint (.*?):(\d+)/)!
+          .slice(1)
+        const [playerId, authToken] = content
+          .match(/Player ID assigned: (\d+). Auth token serial number: (\w+)/)!
+          .slice(1)
 
         return {
           type: GameEventType.PlayerAuthenticated,
@@ -89,9 +89,9 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.startsWith('Nickname of')) {
-        const [userId, nickname] = content.match(
-          /(\w+?@steam|northwood|discord|patreon) is now (.*?)\./g
-        )!
+        const [userId, nickname] = content
+          .match(/(\w+?@steam|northwood|discord|patreon) is now (.*?)\./)!
+          .slice(1)
 
         return {
           type: GameEventType.PlayerJoined,
@@ -105,7 +105,7 @@ export function parse(line: string): GameEvent {
 
       if (content.includes('disconnected')) {
         const { userId, nickname, newContent, displayName } = extractPlayerData(content)
-        const [playerClass] = newContent.match(/Last class: (.*?) \(/)!
+        const [playerClass] = newContent.match(/Last class: (.*?) \(/)!.slice(1)
 
         return {
           type: GameEventType.PlayerLeft,
@@ -120,7 +120,7 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('sent Do Not Track signal')) {
-        const [ip] = content.match(/from IP (.*?) sent/)!
+        const [ip] = content.match(/from IP (.*?) sent/)!.slice(1)
 
         return {
           type: GameEventType.PlayerSentDoNotTrackSignal,
@@ -131,7 +131,7 @@ export function parse(line: string): GameEvent {
 
       if (content.includes('assigned to group')) {
         const { userId, nickname, displayName } = extractPlayerData(content)
-        const [group] = content.match(/to group (.*?)\./)!
+        const [group] = content.match(/to group (.*?)\./)!.slice(1)
 
         return {
           type: GameEventType.PlayerAssignedToGroup,
@@ -181,9 +181,9 @@ export function parse(line: string): GameEvent {
           if (content.includes('banned')) {
             const adminData = extractPlayerData(content)
             const playerData = extractPlayerData(adminData.newContent)
-            const [_, duration, reason] = content.match(
-              /Ban duration\: (\d+)\. Reason: ([\s\S]+)$/
-            )!
+            const [duration, reason] = content
+              .match(/Ban duration\: (\d+)\. Reason: ([\s\S]+)$/)!
+              .slice(1)
             return {
               type: GameEventType.PlayerBanned,
               meta,
@@ -260,9 +260,9 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('spawned as')) {
-        const [nickname, userId, playerClass] = content.match(
-          /(.*?) \((\w+@steam|northwood|discord|patreon)\) spawned as (.*?)\./g
-        )!
+        const [nickname, userId, playerClass] = content
+          .match(/(.*?) \((\w+@steam|northwood|discord|patreon)\) spawned as (.*?)\./)!
+          .slice(1)
 
         return {
           type: GameEventType.PlayerSpawned,
@@ -280,6 +280,7 @@ export function parse(line: string): GameEvent {
           .split(':')[1]
           .split('|')
           .map((playerClass) => playerClass.trim())
+          .filter(Boolean)
 
         return {
           type: GameEventType.ClassPickerResult,
@@ -296,9 +297,9 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('respawned as')) {
-        const [nickname, userId, playerClass] = content.match(
-          /Player (.*?) \((\w+@steam|northwood|discord|patreon)\) respawned as (.*?)\./g
-        )!
+        const [nickname, userId, playerClass] = content
+          .match(/Player (.*?) \((\w+@steam|northwood|discord|patreon)\) respawned as (.*?)\./)!
+          .slice(1)
 
         return {
           type: GameEventType.PlayerRespawned,
@@ -313,7 +314,7 @@ export function parse(line: string): GameEvent {
 
       if (content.startsWith('RespawnManager has successfully spawned')) {
         // ? В RespawnManagerSpawnedPlayers не прописано поле класса
-        const [count, playerClass] = content.match(/spawned (\d+) players as (.*?)\!/g)!
+        const [count, playerClass] = content.match(/spawned (\d+) players as (.*?)\!/)!.slice(1)
 
         return {
           type: GameEventType.RespawnManagerSpawnedPlayers,
@@ -340,9 +341,9 @@ export function parse(line: string): GameEvent {
     }
     case ServerLogType.InternalMessage: {
       // Started logging. Game version: 11.0.0, private beta: NO.
-      const [gameVersion, isPrivateBeta] = meta.content.match(
-        /Game version: ([\d.]+?), private beta: (NO|YES)./g
-      )!
+      const [gameVersion, isPrivateBeta] = meta.content
+        .match(/Game version: ([\d.]+?), private beta: (NO|YES)./)!
+        .slice(1)
 
       return {
         type: GameEventType.LoggerStarted,
@@ -381,31 +382,7 @@ export function parse(line: string): GameEvent {
         case ServerLogModule.Networking:
         case ServerLogModule.ClassChange:
         case ServerLogModule.Permissions:
-        case ServerLogModule.Administrative: {
-          if (content.includes('banned')) {
-            const adminData = extractPlayerData(content)
-            const playerData = extractPlayerData(adminData.newContent)
-            const [duration, reason] = content.match(/Ban duration: (\d+). Reason: ([\s\S]+)$/g)!
-
-            return {
-              type: GameEventType.PlayerBanned,
-              meta,
-              administrator: {
-                userId: adminData.userId,
-                nickname: adminData.nickname,
-                displayName: adminData.displayName
-              },
-              player: {
-                userId: playerData.userId,
-                nickname: playerData.nickname,
-                displayName: playerData.displayName
-              },
-              duration: Number(duration),
-              reason
-            }
-          }
-          throw new Error('Not implemented')
-        }
+        case ServerLogModule.Administrative:
         case ServerLogModule.Logger:
         case ServerLogModule.DataAccess:
         case ServerLogModule.Detector: {
