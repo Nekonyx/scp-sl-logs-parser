@@ -4,6 +4,27 @@ import { parseLineMeta } from './parse-line-meta'
 import { GameEventType } from '../constants'
 import type { GameEvent, PlayerKilledGameEvent } from '../types'
 
+function extractPlayerData(logContent: string): {
+  displayName?: string
+  userId: string
+  nickname: string
+  newContent: string
+} {
+  // John Doe (76561199012345678@steam)
+  // Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)
+  const displayNameRegex =
+    /(.*?)<color.*?color> \((.*?)\) \((\w+@steam|northwood|discord|patreon)\)/g
+  const nicknameRegex = /(.*?) \((\w+@steam|northwood|discord|patreon)\)/
+
+  if (logContent.includes('<color=')) {
+    const [displayName, nickname, userId] = logContent.match(displayNameRegex)!
+    return { userId, nickname, newContent: logContent.replace(displayName, '') }
+  }
+
+  const [nickname, userId] = logContent.match(nicknameRegex)!
+  return { userId, nickname, newContent: logContent.replace(nicknameRegex, '') }
+}
+
 /**
  * Parses a log line and returns a GameEvent object.
  *
@@ -13,19 +34,127 @@ import type { GameEvent, PlayerKilledGameEvent } from '../types'
  */
 export function parse(line: string): GameEvent {
   const meta = parseLineMeta(line)
+  const { content } = meta
 
   switch (meta.type) {
-    case ServerLogType.ConnectionUpdate:
+    case ServerLogType.ConnectionUpdate: {
+      // 76561199012345678@steam preauthenticated from endpoint 127.0.0.1:9777.
+      // 76561199012345678@steam authenticated from endpoint 127.0.0.1:55889. Player ID assigned: 2. Auth token serial number: qwerty123
+      // Nickname of 76561199012345678@steam is now John Doe.
+      // John Doe 76561199012345678@steam disconnected from IP address 127.0.0.1. Last class: Spectator (Spectator)
+      // Player (CharacterClassManager)) connected from IP 127.0.0.1 sent Do Not Track signal.
+      // John Doe (76561199012345678@steam) has been assigned to group Administrator.
+      if (content.includes('preauthenticated')) {
+        const [userId, ip, port] = content.match(
+          /(\w+?@steam|northwood|discord|patreon).*((?:\d{1,3}\.?){4}):(\d+)/g
+        )!
+
+        return {
+          type: GameEventType.PlayerPreauthenticated,
+          meta,
+          player: {
+            userId,
+            ip,
+            port: Number(port),
+            endpoint: `${ip}:${port}`
+          }
+        }
+      }
+
+      if (content.includes('Auth token serial number')) {
+        const [userId, ip, port] = content.match(
+          /(\w+?@steam|northwood|discord|patreon).*((?:\d{1,3}\.?){4}):(\d+)/g
+        )!
+        const [playerId, authToken] = content.match(
+          /Player ID assigned: (\d+). Auth token serial number: (\w+)/g
+        )!
+
+        return {
+          type: GameEventType.PlayerAuthenticated,
+          meta: meta,
+          player: {
+            id: Number(playerId),
+            userId,
+            ip,
+            port: Number(port),
+            endpoint: `${ip}:${port}`
+          },
+          authTokenSerialNumber: authToken
+        }
+      }
+
+      if (content.startsWith('Nickname of')) {
+        const [userId, nickname] = content.match(
+          /(\w+?@steam|northwood|discord|patreon) is now (.*?)\./g
+        )!
+
+        return {
+          type: GameEventType.PlayerJoined,
+          meta,
+          player: {
+            userId,
+            nickname
+          }
+        }
+      }
+
+      if (content.includes('disconnected')) {
+        const { userId, nickname, newContent, displayName } = extractPlayerData(content)
+        const [playerClass] = newContent.match(/Last class: (.*?) \(/)!
+
+        return {
+          type: GameEventType.PlayerLeft,
+          meta,
+          player: {
+            userId,
+            nickname,
+            displayName,
+            class: playerClass
+          }
+        }
+      }
+
+      if (content.includes('sent Do Not Track signal')) {
+        const [ip] = content.match(/from IP (.*?) sent/)!
+
+        return {
+          type: GameEventType.PlayerSentDoNotTrackSignal,
+          meta,
+          ip
+        }
+      }
+
+      if (content.includes('assigned to group')) {
+        const { userId, nickname, displayName } = extractPlayerData(content)
+        const [group] = content.match(/to group (.*?)\./)!
+
+        return {
+          type: GameEventType.PlayerAssignedToGroup,
+          meta,
+          player: {
+            userId,
+            nickname,
+            displayName,
+            group
+          }
+        }
+      }
+
+      return {
+        type: GameEventType.WarheadDetonated,
+        meta
+      }
+    }
     case ServerLogType.RemoteAdminActivity_GameChanging:
     case ServerLogType.RemoteAdminActivity_Misc:
     case ServerLogType.KillLog:
     // {
     //   // John Doe (76561199012345678@steam) playing as Class-D Personnel has been killed by John Doe (76561199012345678@steam) using SCP-173 playing as SCP-173.
     //   // Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) playing as Chaos Insurgency Repressor has been killed by Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) using LOGICER playing as Nine-Tailed Fox Captain.
-    //   return {
-    //     type: GameEventType.WarheadDetonated,
+    // return {
+    //   type: GameEventType.WarheadDetonated,
 
-    //   }
+    // }
     // }
     case ServerLogType.GameEvent: {
       // Round has been started.
@@ -37,8 +166,6 @@ export function parse(line: string): GameEvent {
       // RespawnManager has successfully spawned 11 players as NineTailedFox!
       // Countdown started.
       // Warhead detonated.
-
-      const { content } = meta
 
       if (content === 'Round has been started.') {
         return {
