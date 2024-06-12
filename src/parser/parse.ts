@@ -8,6 +8,9 @@ import type { GameEvent } from '../types'
  * Extracts player account related data from a log line.
  *
  * @param logContent - The log line content.
+ * @param extractTarget - Whether the target player will be extracted from log line.
+ * E.g. killed by id, changed class of player id.
+ *
  * @returns An object containing the player account related data.
  *
  * @example
@@ -32,30 +35,38 @@ import type { GameEvent } from '../types'
  *   displayName: undefined
  * }
  */
-function extractPlayerData(logContent: string): {
+export function extractPlayerData(
+  logContent: string,
+  extractTarget = false
+): {
   displayName?: string
   userId: string
   nickname: string
-  newContent: string
 } {
+  // Possible content of logContent:
   // John Doe (76561199012345678@steam)
-  const nicknameRegex = /(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/
   // Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)
-  const displayNameRegex =
-    /(.*?)<color.*?color> \((.*?)\) \((\w+@steam|northwood|discord|patreon)\)/
+  const [combinedNickname, userId] = logContent
+    .match(
+      new RegExp(
+        `${extractTarget ? '(?:(?:banned|player|by|to) )' : ''}${/(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/.source}`
+      )
+    )!
+    .slice(1)
 
-  if (logContent.includes('<color=')) {
-    const [displayName, nickname, userId] = logContent.match(displayNameRegex)!.slice(1)
-    return {
-      displayName,
-      userId,
-      nickname,
-      newContent: logContent.replace(displayNameRegex, '')
-    }
+  // Possible content of combinedNickname:
+  // John Doe
+  // Jane Doe<color=#855439>*</color> (John Doe)
+  const [displayName, nickname] = combinedNickname
+    .match(/(?:(.*?)<color.*?color> \()?(.*)\)?/)!
+    .slice(1) as [string | undefined, string]
+
+  return {
+    userId,
+    // regex above captures trailing parenthesis if combinedNickname contains it
+    nickname: nickname.replace(/\)$/, ''),
+    displayName
   }
-
-  const [nickname, userId] = logContent.match(nicknameRegex)!.slice(1)
-  return { userId, nickname, newContent: logContent.replace(nicknameRegex, '') }
 }
 
 /**
@@ -129,8 +140,8 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('disconnected')) {
-        const { userId, nickname, newContent, displayName } = extractPlayerData(content)
-        const [playerClass] = newContent.match(/Last class: (.*?) \(/)!.slice(1)
+        const { userId, nickname, displayName } = extractPlayerData(content)
+        const [playerClass] = content.match(/Last class: (.*?) \(/)!.slice(1)
 
         return {
           type: GameEventType.PlayerLeft,
@@ -177,55 +188,194 @@ export function parse(line: string): GameEvent {
     }
     // biome-ignore lint/suspicious/noFallthroughSwitchClause:
     case ServerLogType.RemoteAdminActivity_GameChanging: {
-      // John Doe (76561199012345678@steam) banned player scp (76561199012345678@steam). Ban duration: 30. Reason: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis tempor nisl. Aliquam aliquam, nisi sed hendrerit pretium, odio felis sollicitudin tellus, ac ultricies ante nisl id sem. Ut molestie purus eu lorem sagittis suscipit.
-      // John Doe (76561199012345678@steam) teleported themself to player John Doe (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) teleported themself to player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) started a cassie announcement: Attention . SCP 0 4 9 has escaped the facility . . .g2 Report to nearby Site . ready .
-      // John Doe (76561199012345678@steam) started a silent cassie announcement: pitch_0.8 .g4 . . .g4 . . .g4 . . . warning jam_010_2 pitch_0.9 . all .g6 personel . facility light system .g2 pitch_0.7 jam_001_3 .g2 .g2 jam_50_2 pitch_0.8 critical pitch_0.6 .g2 .g1 .g2 pitch_0.8 jam_3_4 detected . . .g1 .g5 light jam_5_3 may . b .g1 unstable pitch_0.8 jam_4_4 .g4 . . jam_4_4 .g4 . . jam_4_4 .g4 .
-      // John Doe (76561199012345678@steam) brought player John Doe (76561199012345678@steam).
-      // LCZ decontamination has been disabled by detonation of the Alpha Warhead.
-      // John Doe (76561199012345678@steam)opened door **.
-      // John Doe (76561199012345678@steam)closed door **.
-      // John Doe (76561199012345678@steam)unlocked door **.
-      // John Doe (76561199012345678@steam)locked door **.
-      // John Doe (76561199012345678@steam) enabled lobby lock.
-      // John Doe (76561199012345678@steam) disabled lobby lock.
-      // John Doe (76561199012345678@steam) enabled round lock.
-      // John Doe (76561199012345678@steam) disabled round lock.
-      // John Doe (76561199012345678@steam) muted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) unmuted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) revoked an intercom mute of player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) gave Adrenaline to John Doe (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) set nickname of player 42 (John Doe) to "Jane Doe".
       switch (meta.module) {
         case ServerLogModule.Warhead:
         case ServerLogModule.Networking:
         case ServerLogModule.ClassChange:
         case ServerLogModule.Permissions:
         case ServerLogModule.Administrative: {
+          // John Doe (76561199012345678@steam) banned player scp (76561199012345678@steam). Ban duration: 30. Reason: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis tempor nisl. Aliquam aliquam, nisi sed hendrerit pretium, odio felis sollicitudin tellus, ac ultricies ante nisl id sem. Ut molestie purus eu lorem sagittis suscipit.
+          // John Doe (76561199012345678@steam) teleported themself to player John Doe (76561199012345678@steam).
+          // John Doe (76561199012345678@steam) teleported themself to player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+          // John Doe (76561199012345678@steam) started a cassie announcement: Attention . SCP 0 4 9 has escaped the facility . . .g2 Report to nearby Site . ready .
+          // John Doe (76561199012345678@steam) started a silent cassie announcement: pitch_0.8 .g4 . . .g4 . . .g4 . . . warning jam_010_2 pitch_0.9 . all .g6 personel . facility light system .g2 pitch_0.7 jam_001_3 .g2 .g2 jam_50_2 pitch_0.8 critical pitch_0.6 .g2 .g1 .g2 pitch_0.8 jam_3_4 detected . . .g1 .g5 light jam_5_3 may . b .g1 unstable pitch_0.8 jam_4_4 .g4 . . jam_4_4 .g4 . . jam_4_4 .g4 .
+          // John Doe (76561199012345678@steam) brought player John Doe (76561199012345678@steam).
+          // LCZ decontamination has been disabled by detonation of the Alpha Warhead.
+          // John Doe (76561199012345678@steam)opened door **.
+          // John Doe (76561199012345678@steam)closed door **.
+          // John Doe (76561199012345678@steam)unlocked door **.
+          // John Doe (76561199012345678@steam)locked door **.
+          // John Doe (76561199012345678@steam) enabled lobby lock.
+          // John Doe (76561199012345678@steam) disabled lobby lock.
+          // John Doe (76561199012345678@steam) enabled round lock.
+          // John Doe (76561199012345678@steam) disabled round lock.
+          // John Doe (76561199012345678@steam) muted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+          // John Doe (76561199012345678@steam) unmuted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+          // John Doe (76561199012345678@steam) revoked an intercom mute of player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
+          // John Doe (76561199012345678@steam) gave Adrenaline to John Doe (76561199012345678@steam).
+          // John Doe (76561199012345678@steam) set nickname of player 42 (John Doe) to "Jane Doe".
           if (content.includes('banned')) {
-            const adminData = extractPlayerData(content)
-            const playerData = extractPlayerData(adminData.newContent)
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
             const [duration, reason] = content
               .match(/Ban duration\: (\d+)\. Reason: ([\s\S]+)$/)!
               .slice(1)
+
             return {
               type: GameEventType.PlayerBanned,
               meta,
-              administrator: {
-                userId: adminData.userId,
-                nickname: adminData.nickname,
-                displayName: adminData.displayName
-              },
-              player: {
-                userId: playerData.userId,
-                nickname: playerData.nickname,
-                displayName: playerData.displayName
-              },
+              administrator,
+              player,
               duration: Number(duration),
               reason
             }
           }
+
+          if (content.includes('teleported themself to')) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+
+            return {
+              type: GameEventType.PlayerTeleported,
+              meta,
+              administrator,
+              player
+            }
+          }
+
+          if (content.includes('cassie announcement')) {
+            const administrator = extractPlayerData(content)
+            const [message] = content.match(/cassie announcement: (.*)$/)!.slice(1)
+
+            return {
+              type: GameEventType.CassieAnnouncementStarted,
+              meta,
+              administrator,
+              isSilent: message.includes('silent cassie announcement'),
+              message
+            }
+          }
+
+          if (content.includes('brought player')) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+
+            return {
+              type: GameEventType.PlayerBrought,
+              meta,
+              administrator,
+              player
+            }
+          }
+
+          if (content.includes('LCZ decontamination has been disabled')) {
+            return {
+              type: GameEventType.DecontaminationDisabled,
+              meta
+            }
+          }
+
+          if (content.match(/\)( )?(opened|closed|unlocked|locked) door/)) {
+            const administrator = extractPlayerData(content)
+            const [action, door] = content
+              .match(/(opened|closed|unlocked|locked) door (.*)/)!
+              .slice(1) as ['opened' | 'closed' | 'unlocked' | 'locked', string]
+            const actionsTypes: Record<
+              typeof action,
+              | GameEventType.DoorOpened
+              | GameEventType.DoorClosed
+              | GameEventType.DoorUnlocked
+              | GameEventType.DoorLocked
+            > = {
+              opened: GameEventType.DoorOpened,
+              closed: GameEventType.DoorClosed,
+              unlocked: GameEventType.DoorUnlocked,
+              locked: GameEventType.DoorLocked
+            }
+
+            return {
+              type: actionsTypes[action],
+              meta,
+              administrator,
+              door
+            }
+          }
+
+          if (content.endsWith('lobby lock.')) {
+            const administrator = extractPlayerData(content)
+            const enabled = content.endsWith('enabled lobby lock.')
+
+            return {
+              type: enabled ? GameEventType.LobbyLockEnabled : GameEventType.LobbyLockDisabled,
+              meta,
+              administrator
+            }
+          }
+
+          if (content.endsWith('round lock.')) {
+            const administrator = extractPlayerData(content)
+            const enabled = content.endsWith('enabled round lock.')
+
+            return {
+              type: enabled ? GameEventType.RoundLockEnabled : GameEventType.RoundLockDisabled,
+              meta,
+              administrator
+            }
+          }
+
+          if (content.includes('muted player')) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+            const unmuted = content.includes('unmuted player')
+
+            return {
+              type: unmuted ? GameEventType.PlayerUnmuted : GameEventType.PlayerMuted,
+              meta,
+              administrator,
+              player
+            }
+          }
+
+          if (content.includes('revoked an intercom mute')) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+
+            return {
+              type: GameEventType.PlayerIntercomMuteRevoked,
+              meta,
+              administrator,
+              player
+            }
+          }
+
+          if (content.match(/\) gave .* to .*/)) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+            const [item] = content.match(/gave (.*) to/)!.slice(1)
+
+            return {
+              type: GameEventType.PlayerGotItem,
+              meta,
+              administrator,
+              player,
+              item
+            }
+          }
+
+          if (content.includes('set nickname of player')) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+            const [nickname] = content.match(/to "(.*)"./)!.slice(1)
+
+            return {
+              type: GameEventType.PlayerSetNickname,
+              meta,
+              administrator,
+              player,
+              nickname
+            }
+          }
+
           throw new Error('Not implemented')
         }
         case ServerLogModule.Logger:
@@ -321,7 +471,7 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('respawned as')) {
-        const { userId, nickname } = extractPlayerData(content)
+        const { userId, nickname } = extractPlayerData(content.replace('Player ', ''))
         const [playerClass] = content.match(/respawned as (.*?)\./)!.slice(1)
 
         return {
@@ -337,7 +487,7 @@ export function parse(line: string): GameEvent {
 
       if (content.startsWith('RespawnManager has successfully spawned')) {
         // ? В RespawnManagerSpawnedPlayersGameEvent не прописано поле класса
-        const [count] = content.match(/spawned (\d+) players as (.*?)\!/)!.slice(1)
+        const [count] = content.match(/spawned (\d+) players as (.*)\!/)!.slice(1)
 
         return {
           type: GameEventType.RespawnManagerSpawnedPlayers,
