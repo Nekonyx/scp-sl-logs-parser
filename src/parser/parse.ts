@@ -11,10 +11,10 @@ function extractPlayerData(logContent: string): {
   newContent: string
 } {
   // John Doe (76561199012345678@steam)
+  const nicknameRegex = /(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/
   // Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)
   const displayNameRegex =
     /(.*?)<color.*?color> \((.*?)\) \((\w+@steam|northwood|discord|patreon)\)/
-  const nicknameRegex = /(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/
 
   if (logContent.includes('<color=')) {
     const [displayName, nickname, userId] = logContent.match(displayNameRegex)!.slice(1)
@@ -50,9 +50,8 @@ export function parse(line: string): GameEvent {
       // Player (CharacterClassManager)) connected from IP 127.0.0.1 sent Do Not Track signal.
       // John Doe (76561199012345678@steam) has been assigned to group Administrator.
       if (content.includes('preauthenticated')) {
-        const [userId, ip, port] = content
-          .match(/(\w+?@steam|northwood|discord|patreon).* endpoint (.*?):(\d+)/)!
-          .slice(1)
+        const { userId } = extractPlayerData(content)
+        const [ip, port] = content.match(/endpoint (.*?):(\d+)/)!.slice(1)
 
         return {
           type: GameEventType.PlayerPreauthenticated,
@@ -67,11 +66,11 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('Auth token serial number')) {
-        const [userId, ip, port] = content
-          .match(/(\w+?@steam|northwood|discord|patreon).* endpoint (.*?):(\d+)/)!
-          .slice(1)
-        const [playerId, authToken] = content
-          .match(/Player ID assigned: (\d+). Auth token serial number: (\w+)/)!
+        const { userId } = extractPlayerData(content)
+        const [ip, port, playerId, authToken] = content
+          .match(
+            /endpoint (.*?):(\d+)\. Player ID assigned: (\d+). Auth token serial number: (\w+)/
+          )!
           .slice(1)
 
         return {
@@ -89,9 +88,7 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.startsWith('Nickname of')) {
-        const [userId, nickname] = content
-          .match(/(\w+?@steam|northwood|discord|patreon) is now (.*?)\./)!
-          .slice(1)
+        const { userId, nickname } = extractPlayerData(content)
 
         return {
           type: GameEventType.PlayerJoined,
@@ -260,9 +257,8 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('spawned as')) {
-        const [nickname, userId, playerClass] = content
-          .match(/(.*?) \((\w+@steam|northwood|discord|patreon)\) spawned as (.*?)\./)!
-          .slice(1)
+        const { userId, nickname } = extractPlayerData(content)
+        const [playerClass] = content.match(/spawned as (.*?)\./)!.slice(1)
 
         return {
           type: GameEventType.PlayerSpawned,
@@ -297,9 +293,8 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('respawned as')) {
-        const [nickname, userId, playerClass] = content
-          .match(/Player (.*?) \((\w+@steam|northwood|discord|patreon)\) respawned as (.*?)\./)!
-          .slice(1)
+        const { userId, nickname } = extractPlayerData(content)
+        const [playerClass] = content.match(/respawned as (.*?)\./)!.slice(1)
 
         return {
           type: GameEventType.PlayerRespawned,
@@ -313,8 +308,8 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.startsWith('RespawnManager has successfully spawned')) {
-        // ? В RespawnManagerSpawnedPlayers не прописано поле класса
-        const [count, playerClass] = content.match(/spawned (\d+) players as (.*?)\!/)!.slice(1)
+        // ? В RespawnManagerSpawnedPlayersGameEvent не прописано поле класса
+        const [count] = content.match(/spawned (\d+) players as (.*?)\!/)!.slice(1)
 
         return {
           type: GameEventType.RespawnManagerSpawnedPlayers,
