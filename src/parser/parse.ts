@@ -88,6 +88,7 @@ export function parse(line: string): GameEvent {
       // John Doe 76561199012345678@steam disconnected from IP address 127.0.0.1. Last class: Spectator (Spectator)
       // Player (CharacterClassManager)) connected from IP 127.0.0.1 sent Do Not Track signal.
       // John Doe (76561199012345678@steam) has been assigned to group Administrator.
+
       if (content.includes('preauthenticated')) {
         const { userId } = extractPlayerData(content)
         const [ip, port] = content.match(/endpoint (.*?):(\d+)/)!.slice(1)
@@ -181,18 +182,31 @@ export function parse(line: string): GameEvent {
         }
       }
 
-      return {
-        type: GameEventType.WarheadDetonated,
-        meta
-      }
+      throw new Error('Not implemented')
     }
-    // biome-ignore lint/suspicious/noFallthroughSwitchClause:
     case ServerLogType.RemoteAdminActivity_GameChanging: {
       switch (meta.module) {
-        case ServerLogModule.Warhead:
-        case ServerLogModule.Networking:
-        case ServerLogModule.ClassChange:
-        case ServerLogModule.Permissions:
+        case ServerLogModule.ClassChange: {
+          // John Doe (76561199012345678@steam) changed class of player John Doe (76561199012345678@steam) to Spectator.
+
+          if (content.includes('changed class of player')) {
+            const administrator = extractPlayerData(content)
+            const player = extractPlayerData(content, true)
+            const [playerClass] = content.match(/to (.*?)\./)!.slice(1)
+
+            return {
+              type: GameEventType.PlayerChangedClass,
+              meta,
+              administrator,
+              player: {
+                ...player,
+                class: playerClass
+              }
+            }
+          }
+
+          throw new Error('Not implemented')
+        }
         case ServerLogModule.Administrative: {
           // John Doe (76561199012345678@steam) banned player scp (76561199012345678@steam). Ban duration: 30. Reason: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis tempor nisl. Aliquam aliquam, nisi sed hendrerit pretium, odio felis sollicitudin tellus, ac ultricies ante nisl id sem. Ut molestie purus eu lorem sagittis suscipit.
           // John Doe (76561199012345678@steam) teleported themself to player John Doe (76561199012345678@steam).
@@ -214,6 +228,7 @@ export function parse(line: string): GameEvent {
           // John Doe (76561199012345678@steam) revoked an intercom mute of player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
           // John Doe (76561199012345678@steam) gave Adrenaline to John Doe (76561199012345678@steam).
           // John Doe (76561199012345678@steam) set nickname of player 42 (John Doe) to "Jane Doe".
+
           if (content.includes('banned')) {
             const administrator = extractPlayerData(content)
             const player = extractPlayerData(content, true)
@@ -378,24 +393,39 @@ export function parse(line: string): GameEvent {
 
           throw new Error('Not implemented')
         }
-        case ServerLogModule.Logger:
-        case ServerLogModule.DataAccess:
-        case ServerLogModule.Detector: {
+        default: {
           throw new Error('Not implemented')
         }
       }
     }
+    case ServerLogType.KillLog: {
+      // John Doe (76561199012345678@steam) playing as Class-D Personnel has been killed by John Doe (76561199012345678@steam) using SCP-173 playing as SCP-173.
+      // Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) playing as Chaos Insurgency Repressor has been killed by Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) using LOGICER playing as Nine-Tailed Fox Captain.
 
-    case ServerLogType.RemoteAdminActivity_Misc:
-    // case ServerLogType.KillLog:
-    // {
-    //   // John Doe (76561199012345678@steam) playing as Class-D Personnel has been killed by John Doe (76561199012345678@steam) using SCP-173 playing as SCP-173.
-    //   // Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) playing as Chaos Insurgency Repressor has been killed by Jane Doe<color=#855439>*</color> (John Doe) (76561199012345678@steam) using LOGICER playing as Nine-Tailed Fox Captain.
-    // return {
-    //   type: GameEventType.WarheadDetonated,
+      if (content.includes('has been killed by')) {
+        // ? В PlayerKilledGameEvent не прописано поле weapon
+        const killer = extractPlayerData(content)
+        const victim = extractPlayerData(content, true)
+        const [killerClass, victimClass] = content
+          .match(/playing as (.*) has been killed by .* playing as (.*)\./)!
+          .slice(1)
 
-    // }
-    // }
+        return {
+          type: GameEventType.PlayerKilled,
+          meta,
+          killer: {
+            ...killer,
+            class: killerClass
+          },
+          victim: {
+            ...victim,
+            class: victimClass
+          }
+        }
+      }
+
+      throw new Error('Not implemented')
+    }
     case ServerLogType.GameEvent: {
       // Round has been started.
       // Round finished! Anomalies: 0 | Chaos: 0 | Facility Forces: 6 | D escaped percentage: 0 | S escaped percentage: : 0
@@ -510,55 +540,57 @@ export function parse(line: string): GameEvent {
         }
       }
 
-      throw new Error(`Couldn't parse content of log of type ${meta.type}: ${content}`)
+      throw new Error('Not implemented')
     }
     case ServerLogType.InternalMessage: {
       // Started logging. Game version: 11.0.0, private beta: NO.
-      const [gameVersion, isPrivateBeta] = meta.content
-        .match(/Game version: ([\d.]+?), private beta: (NO|YES)./)!
-        .slice(1)
 
-      return {
-        type: GameEventType.LoggerStarted,
-        meta,
-        gameVersion,
-        isPrivateBeta: isPrivateBeta === 'YES'
+      if (content.startsWith('Started logging.')) {
+        const [gameVersion, isPrivateBeta] = meta.content
+          .match(/Game version: ([\d.]+?), private beta: (NO|YES)./)!
+          .slice(1)
+
+        return {
+          type: GameEventType.LoggerStarted,
+          meta,
+          gameVersion,
+          isPrivateBeta: isPrivateBeta === 'YES'
+        }
       }
+
+      throw new Error('Not implemented')
     }
-    case ServerLogType.RateLimit:
-    case ServerLogType.Teamkill:
-    case ServerLogType.Suicide:
-    // biome-ignore lint/suspicious/noFallthroughSwitchClause:
+    case ServerLogType.RateLimit: {
+      // Incoming connection from endpoint 76561199012345678@steam (127.0.0.1:12207) rejected due to exceeding the rate limit.
+
+      if (content.includes('rejected due to exceeding the rate limit')) {
+        const [userId, endpoint] = content.match(/from endpoint (.*?) \(.*?\)/)!.slice(1)
+
+        return {
+          type: GameEventType.RateLimitExceeded,
+          meta,
+          player: {
+            userId,
+            endpoint
+          }
+        }
+      }
+
+      throw new Error('Not implemented')
+    }
     case ServerLogType.AdminChat: {
-      // John Doe (76561199012345678@steam) banned player scp (76561199012345678@steam). Ban duration: 30. Reason: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis tempor nisl. Aliquam aliquam, nisi sed hendrerit pretium, odio felis sollicitudin tellus, ac ultricies ante nisl id sem. Ut molestie purus eu lorem sagittis suscipit.
-      // John Doe (76561199012345678@steam) teleported themself to player John Doe (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) teleported themself to player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) started a cassie announcement: Attention . SCP 0 4 9 has escaped the facility . . .g2 Report to nearby Site . ready .
-      // John Doe (76561199012345678@steam) started a silent cassie announcement: pitch_0.8 .g4 . . .g4 . . .g4 . . . warning jam_010_2 pitch_0.9 . all .g6 personel . facility light system .g2 pitch_0.7 jam_001_3 .g2 .g2 jam_50_2 pitch_0.8 critical pitch_0.6 .g2 .g1 .g2 pitch_0.8 jam_3_4 detected . . .g1 .g5 light jam_5_3 may . b .g1 unstable pitch_0.8 jam_4_4 .g4 . . jam_4_4 .g4 . . jam_4_4 .g4 .
-      // John Doe (76561199012345678@steam) brought player John Doe (76561199012345678@steam).
-      // LCZ decontamination has been disabled by detonation of the Alpha Warhead.
-      // John Doe (76561199012345678@steam)opened door **.
-      // John Doe (76561199012345678@steam)closed door **.
-      // John Doe (76561199012345678@steam)unlocked door **.
-      // John Doe (76561199012345678@steam)locked door **.
-      // John Doe (76561199012345678@steam) enabled lobby lock.
-      // John Doe (76561199012345678@steam) disabled lobby lock.
-      // John Doe (76561199012345678@steam) enabled round lock.
-      // John Doe (76561199012345678@steam) disabled round lock.
-      // John Doe (76561199012345678@steam) muted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) unmuted player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) revoked an intercom mute of player Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) gave Adrenaline to John Doe (76561199012345678@steam).
-      // John Doe (76561199012345678@steam) set nickname of player 42 (John Doe) to "Jane Doe".
       switch (meta.module) {
-        case ServerLogModule.Warhead:
-        case ServerLogModule.Networking:
-        case ServerLogModule.ClassChange:
-        case ServerLogModule.Permissions:
-        case ServerLogModule.Administrative:
-        case ServerLogModule.Logger:
-        case ServerLogModule.DataAccess:
-        case ServerLogModule.Detector: {
+        // case ServerLogModule.Warhead:
+        // case ServerLogModule.Networking:
+        // case ServerLogModule.ClassChange:
+        // case ServerLogModule.Permissions:
+        // case ServerLogModule.Administrative:
+        // case ServerLogModule.Logger:
+        // case ServerLogModule.DataAccess:
+        // case ServerLogModule.Detector: {
+        //   throw new Error('Not implemented')
+        // }
+        default: {
           throw new Error('Not implemented')
         }
       }
