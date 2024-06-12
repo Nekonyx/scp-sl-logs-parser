@@ -4,6 +4,34 @@ import { parseLineMeta } from './parse-line-meta'
 import { GameEventType } from '../constants'
 import type { GameEvent } from '../types'
 
+/**
+ * Extracts player account related data from a log line.
+ *
+ * @param logContent - The log line content.
+ * @returns An object containing the player account related data.
+ *
+ * @example
+ * const { userId, nickname, newContent, displayName } = extractPlayerData(
+ *   'Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)'
+ * )
+ * {
+ *   userId: '76561199012345678@steam',
+ *   nickname: 'John Doe',
+ *   newContent: '',
+ *   displayName: 'Jane Doe'
+ * }
+ *
+ * @example
+ * const { userId, nickname, newContent, displayName } = extractPlayerData(
+ *   'John Doe (76561199012345678@steam) other log related content'
+ * )
+ * {
+ *   userId: '76561199012345678@steam',
+ *   nickname: 'John Doe',
+ *   newContent: ' other log related content',
+ *   displayName: undefined
+ * }
+ */
 function extractPlayerData(logContent: string): {
   displayName?: string
   userId: string
