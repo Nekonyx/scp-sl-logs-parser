@@ -23,3 +23,68 @@ export function parseLineMeta(line: string): LogLineMeta {
     content: parts.slice(3).join(SERVER_LOG_SEPARATOR).trim()
   }
 }
+
+/**
+ * Extracts player account related data from a log line.
+ *
+ * @param logContent - The log line content.
+ * @param extractTarget - Whether the target player will be extracted from log line.
+ * E.g. killed by id, changed class of player id.
+ *
+ * @returns An object containing the player account related data.
+ *
+ * @example
+ * const { userId, nickname, newContent, displayName } = extractPlayerData(
+ *   'Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)'
+ * )
+ * {
+ *   userId: '76561199012345678@steam',
+ *   nickname: 'John Doe',
+ *   newContent: '',
+ *   displayName: 'Jane Doe'
+ * }
+ *
+ * @example
+ * const { userId, nickname, newContent, displayName } = extractPlayerData(
+ *   'John Doe (76561199012345678@steam) other log related content'
+ * )
+ * {
+ *   userId: '76561199012345678@steam',
+ *   nickname: 'John Doe',
+ *   newContent: ' other log related content',
+ *   displayName: undefined
+ * }
+ */
+export function extractPlayerData(
+  logContent: string,
+  extractTarget = false
+): {
+  displayName?: string
+  userId: string
+  nickname: string
+} {
+  // Possible content of logContent:
+  // John Doe (76561199012345678@steam)
+  // Jane Doe<color=855439>*</color> (John Doe) (76561199012345678@steam)
+  const [combinedNickname, userId] = logContent
+    .match(
+      new RegExp(
+        `${extractTarget ? '(?:(?:banned|player|by|to) )' : ''}${/(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/.source}`
+      )
+    )!
+    .slice(1)
+
+  // Possible content of combinedNickname:
+  // John Doe
+  // Jane Doe<color=#855439>*</color> (John Doe)
+  const [displayName, nickname] = combinedNickname
+    .match(/(?:(.*?)<color.*?color> \()?(.*)\)?/)!
+    .slice(1) as [string | undefined, string]
+
+  return {
+    userId,
+    // regex above captures trailing parenthesis if combinedNickname contains it
+    nickname: nickname.replace(/\)$/, ''),
+    displayName
+  }
+}
