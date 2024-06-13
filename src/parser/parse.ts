@@ -399,9 +399,9 @@ export function parse(line: string): GameEvent {
         }
       }
 
-      if (content.includes('spawned as')) {
+      if (content.includes(' spawned as')) {
         const { userId, nickname } = extractPlayerData(content)
-        const [playerClass] = content.match(/spawned as (.*?)\./)!.slice(1)
+        const [playerClass] = content.match(/ spawned as (.*?)\./)!.slice(1)
 
         return {
           type: GameEventType.PlayerSpawned,
