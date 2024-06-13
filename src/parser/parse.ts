@@ -25,8 +25,9 @@ export function parse(line: string): GameEvent {
       // John Doe (76561199012345678@steam) has been assigned to group Administrator.
 
       if (content.includes('preauthenticated')) {
-        const { userId } = extractPlayerData(content)
-        const [ip, port] = content.match(/endpoint (.*?):(\d+)/)!.slice(1)
+        const [userId, ip, port] = content
+          .match(/^(.*?) preauthenticated from endpoint (.*?):(\d+)/)!
+          .slice(1)
 
         return {
           type: GameEventType.PlayerPreauthenticated,
@@ -41,10 +42,9 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.includes('Auth token serial number')) {
-        const { userId } = extractPlayerData(content)
-        const [ip, port, playerId, authToken] = content
+        const [userId, ip, port, playerId, authToken] = content
           .match(
-            /endpoint (.*?):(\d+)\. Player ID assigned: (\d+). Auth token serial number: (\w+)/
+            /^(.*?) authenticated from endpoint (.*?):(\d+)\. Player ID assigned: (\d+). Auth token serial number: (\w+)/
           )!
           .slice(1)
 
@@ -63,7 +63,7 @@ export function parse(line: string): GameEvent {
       }
 
       if (content.startsWith('Nickname of')) {
-        const { userId, nickname } = extractPlayerData(content)
+        const [userId, nickname] = content.match(/^Nickname of (.*) is now (.*)\./)!.slice(1)
 
         return {
           type: GameEventType.PlayerJoined,
