@@ -302,7 +302,7 @@ export type PlayerSetNicknameGameEvent = {
   type: GameEventType.PlayerSetNickname
   meta: LogLineMeta
   administrator: Pick<Player, 'userId' | 'nickname' | 'displayName'>
-  player: Pick<Player, 'userId' | 'nickname' | 'displayName'>
+  player: Pick<Player, 'nickname' | 'displayName'>
   nickname: string
 }
 
