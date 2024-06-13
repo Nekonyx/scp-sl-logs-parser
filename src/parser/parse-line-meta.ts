@@ -69,7 +69,7 @@ export function extractPlayerData(
   const [combinedNickname, userId] = logContent
     .match(
       new RegExp(
-        `${extractTarget ? '(?:(?:player|by) )' : ''}${/(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/.source}`
+        `${extractTarget ? '(?:(?:player|by|to player|to) )' : ''}${/(.*?) \(?(\w+@steam|northwood|discord|patreon)\)?/.source}`
       )
     )!
     .slice(1)
