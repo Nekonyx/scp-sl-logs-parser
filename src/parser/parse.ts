@@ -228,7 +228,7 @@ export function parse(line: string): GameEvent {
           if (content.match(/\)( )?(opened|closed|unlocked|locked) door/)) {
             const administrator = extractPlayerData(content)
             const [action, door] = content
-              .match(/(opened|closed|unlocked|locked) door (.*)/)!
+              .match(/(opened|closed|unlocked|locked) door (.*)\./)!
               .slice(1) as ['opened' | 'closed' | 'unlocked' | 'locked', string]
             const actionsTypes: Record<
               typeof action,
