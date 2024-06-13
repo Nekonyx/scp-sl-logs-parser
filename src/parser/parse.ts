@@ -168,7 +168,7 @@ export function parse(line: string): GameEvent {
             const administrator = extractPlayerData(content)
             const player = extractPlayerData(content, true)
             const [duration, reason] = content
-              .match(/Ban duration\: (\d+)\. Reason: ([\s\S]+)$/)!
+              .match(/Ban duration\: (\d+)\. Reason: ([\s\S]+)/)!
               .slice(1)
 
             return {
