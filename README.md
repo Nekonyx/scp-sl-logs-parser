@@ -6,7 +6,7 @@
 
 - Minimum supported game version: 11.0
 - Node.js 18 or newer is required.
-- Deno/bun/browser environments may be supported, but I doesn't target them.
+- Deno/bun/browser environments may be supported, but I don't target them.
 
 ## Installation
 
@@ -30,7 +30,7 @@ import { parse, parseFile } from 'https://esm.sh/scp-sl-logs-parser'
 import { parse } from 'scp-sl-logs-parser'
 
 parse(
-  '2021-11-15 14:34:14.981 +03:00 | Internal | Logger | Started logging. Game version: 11.0.0, private beta: NO.'
+	'2021-11-15 14:34:14.981 +03:00 | Internal | Logger | Started logging. Game version: 11.0.0, private beta: NO.'
 )
 ```
 
