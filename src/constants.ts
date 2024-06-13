@@ -79,6 +79,7 @@ export enum GameEventType {
   // 2021-11-15 16:49:18.528 +03:00 | Remote Admin        | Administrative | LCZ decontamination has been disabled by detonation of the Alpha Warhead.
   DecontaminationDisabled = 22,
   // 2021-11-15 18:53:00.159 +03:00 | Rate Limit          | Networking     | Incoming connection from endpoint 76561199012345678@steam (127.0.0.1:12207) rejected due to exceeding the rate limit.
+  // 2021-11-15 18:53:00.159 +03:00 | Rate Limit          | Networking     | Incoming connection from endpoint null (127.0.0.1:12207) rejected due to exceeding the rate limit.
   RateLimitExceeded = 23,
   // 2021-11-15 19:06:11.128 +03:00 | Remote Admin        | Administrative | John Doe (76561199012345678@steam)opened door **.
   DoorOpened = 24,
