@@ -500,15 +500,16 @@ export function parse(line: string): GameEvent {
     }
     case ServerLogType.RateLimit: {
       // Incoming connection from endpoint 76561199012345678@steam (127.0.0.1:12207) rejected due to exceeding the rate limit.
+      // Incoming connection from endpoint null (127.0.0.1:12207) rejected due to exceeding the rate limit.
 
       if (content.includes('rejected due to exceeding the rate limit')) {
-        const [userId, endpoint] = content.match(/from endpoint (.*?) \(.*?\)/)!.slice(1)
+        const [userId, endpoint] = content.match(/from endpoint (.*?) \((.*?)\)/)!.slice(1)
 
         return {
           type: GameEventType.RateLimitExceeded,
           meta,
           player: {
-            userId,
+            userId: userId.includes('@') ? userId.trim() : undefined,
             endpoint
           }
         }
