@@ -195,13 +195,13 @@ export function parse(line: string): GameEvent {
 
           if (content.includes('cassie announcement')) {
             const administrator = extractPlayerData(content)
-            const [message] = content.match(/cassie announcement: (.*)$/)!.slice(1)
+            const [message] = content.match(/cassie announcement: (.*) \.$/)!.slice(1)
 
             return {
               type: GameEventType.CassieAnnouncementStarted,
               meta,
               administrator,
-              isSilent: message.includes('silent cassie announcement'),
+              isSilent: message.includes('silent cassie announcement: '),
               message
             }
           }
