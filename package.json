@@ -14,11 +14,13 @@
 	],
 	"scripts": {
 		"build": "tsc",
-		"watch": "tsc -w"
+		"watch": "tsc -w",
+		"test": "vitest"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.8.1",
 		"@types/node": "^18.19.26",
-		"typescript": "^5.4.3"
+		"typescript": "^5.4.3",
+		"vitest": "^1.6.0"
 	}
 }
