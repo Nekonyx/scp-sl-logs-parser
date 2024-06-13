@@ -314,15 +314,18 @@ export function parse(line: string): GameEvent {
 
           if (content.includes('set nickname of player')) {
             const administrator = extractPlayerData(content)
-            const player = extractPlayerData(content, true)
-            const [nickname] = content.match(/to "(.*)"./)!.slice(1)
+            const [oldNickname, newNickname] = content
+              .match(/of player .* \((.*)\) to "(.*)"./)!
+              .slice(1)
 
             return {
               type: GameEventType.PlayerSetNickname,
               meta,
               administrator,
-              player,
-              nickname
+              player: {
+                nickname: oldNickname
+              },
+              nickname: newNickname
             }
           }
 
@@ -339,9 +342,9 @@ export function parse(line: string): GameEvent {
 
       if (content.includes('has been killed by')) {
         // ? В PlayerKilledGameEvent не прописано поле weapon
-        const killer = extractPlayerData(content)
-        const victim = extractPlayerData(content, true)
-        const [killerClass, victimClass] = content
+        const victim = extractPlayerData(content)
+        const killer = extractPlayerData(content, true)
+        const [victimClass, killerClass] = content
           .match(/playing as (.*) has been killed by .* playing as (.*)\./)!
           .slice(1)
 
